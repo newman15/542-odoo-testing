@@ -26,7 +26,7 @@ class SearchAppointmentWizard(models.TransientModel):
             'res_model': 'hospital.appointment',
             'view_type': 'form',
             'domain': [('patient_id', '=', self.patient_id.id)],
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'target': 'current',
         }
 
