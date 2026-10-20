@@ -1,0 +1,30 @@
+{
+    "name": "Odoo 18 Development",
+
+    "dockerComposeFile": "../compose.yaml",
+    "service": "odoo",
+
+    "workspaceFolder": "/mnt/extra-addons",
+
+    "shutdownAction": "stopCompose",
+
+    "overrideCommand": false,
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/bin/python3",
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "terminal.integrated.profiles.linux": {
+                    "bash": {
+                        "path": "/bin/bash"
+                    }
+                }
+            }
+        }
+    }
+}
