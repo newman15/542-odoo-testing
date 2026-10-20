@@ -23,6 +23,7 @@ services:
     volumes:
       - odoo-web-data:/var/lib/odoo
       - ./addons:/mnt/extra-addons
+      - ./addons/fleet:/usr/lib/python3/dist-packages/odoo/addons/fleet
     restart: unless-stopped
 
 volumes:
