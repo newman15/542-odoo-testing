@@ -301,7 +301,190 @@ For example, tests should create their own patients, doctors, vehicles, or appoi
 
 This keeps tests consistent between group members even though each person has a different local database.
 
-## 8. Normal Development Workflow
+## 8. Running Team Tests
+
+Run these commands from the repository root in a host terminal with Docker
+running. Team tests are stored in `addons/om_hospital/tests/` and
+`addons/fleet/tests/`.
+
+### Test cases
+
+Two additional test cases are available:
+
+- `TestHospitalAppointmentMissingDoctor`: temporarily removes doctor ID `2`
+  inside the test transaction and invokes the Create Appointment wizard.
+  Existing appointments are temporarily reassigned if necessary. This test is
+  intentionally expected to **fail** while the wizard hard-codes `doctor_id=2`.
+  Test rollback restores the existing records; do not manually delete a doctor
+  or reset the development database for this test.
+- `TestFleetOdometer`: increases a vehicle's odometer from `1,000` to `1,250`
+  kilometers and verifies the current reading and both history entries.
+
+### Testing approach
+
+These are Python tests run by Odoo inside Docker. They call model and wizard
+methods through Odoo's ORM (its database API), so they exercise application
+logic against PostgreSQL. They do not open a browser or test page layout;
+Selenium testing is a separate part of the project.
+
+Each of our two tests inherits from `TransactionCase`, which provides
+`self.env` for accessing models and rolls back record changes after the test.
+They create their own data and check results with assertions. Fleet checks
+both the computed odometer reading and the saved history. Hospital calls the
+Create Appointment wizard with doctor `2` absent, catches that specific
+foreign-key violation inside a savepoint, and reports an explicit failure.
+The savepoint allows database cleanup to proceed after the SQL error. This
+test demonstrates the known bug; it does not fix the wizard.
+
+To add coverage, create a `test_*.py` file under the appropriate addon's
+`tests/` directory, import it in `tests/__init__.py`, and add a `TransactionCase`
+class with methods named `test_*`. Create valid test records rather than
+assuming demo records or particular IDs exist. Hospital's ID `2` is an
+intentional exception because that exact value triggers the defect.
+
+### Readable results (recommended)
+
+With Python 3.9 or later installed on the host, run:
+
+```bash
+python3 scripts/run_team_tests.py
+```
+
+The runner uses `odoo18_test_cases` and selects **all registered tests** in
+`om_hospital` and `fleet`, including the existing smoke and Fleet tests. New
+test files must be imported in their addon's `tests/__init__.py`; new classes
+and methods then run without editing the runner.
+
+After Docker finishes, the terminal displays a separate block for every test
+method, with its result, printed output, log messages, and any traceback.
+Test names include their addon and file so similarly named classes remain
+distinct. The final summary lists the totals. Tests that are skipped or whose
+run is interrupted are identified separately.
+
+The runner groups Odoo's log using its test-start and result messages; it does
+not execute the test methods itself. A test with no failure or skip message
+is reported as passing only when Odoo also supplies a final run summary.
+If the number of report blocks differs from Odoo's total, inspect the full log
+for setup/teardown failures. Output outside a test block, including addon
+startup messages, remains available in that log.
+
+Each run creates two timestamped files in `reports/` at the repository root:
+
+- `team-tests-<timestamp>.txt`: the same grouped report displayed in the terminal.
+- `team-tests-<timestamp>.log`: all Docker/Odoo output, including startup and
+  module update messages omitted from the grouped report.
+
+Both paths are printed. The `reports/` folder is gitignored and persists until
+you remove it. The runner preserves the command's nonzero exit status when a
+test fails. If startup fails before tests finish, the report includes the last
+log lines instead of claiming the tests passed.
+
+For the first run on a database without these addons installed:
+
+```bash
+python3 scripts/run_team_tests.py --install
+```
+
+To select another database, add `--database YOUR_DATABASE_NAME`.
+The full Docker commands and their options are documented below.
+
+### First run: initialize a separate test database
+
+The recommended database is `odoo18_test_cases`, separate from the development
+database `odoo18`. If the test database does not exist yet, this command creates
+it and installs both addons and their dependencies:
+
+```bash
+docker compose run --rm odoo odoo \
+  -d odoo18_test_cases \
+  --db_host=db --db_port=5432 --db_user=odoo --db_password=odoo \
+  -i om_hospital,fleet --without-demo=all \
+  --test-tags /om_hospital,/fleet \
+  --stop-after-init --http-port=8070
+```
+
+### Subsequent runs: reuse the test database
+
+Once both addons are installed, use `-u` to update them and run the tests again:
+
+```bash
+docker compose run --rm odoo odoo \
+  -d odoo18_test_cases \
+  --db_host=db --db_port=5432 --db_user=odoo --db_password=odoo \
+  -u om_hospital,fleet \
+  --test-tags /om_hospital,/fleet \
+  --stop-after-init --http-port=8070
+```
+
+With the current Hospital defect, expect the missing-doctor test to fail and
+a nonzero exit status. The remaining tests should pass. The Hospital test
+expects appointment creation to succeed, so reproducing the foreign-key error
+reports a failure. The last verified full run had **5 passing tests, 1 failing
+test, and 0 errors**; this total will change as tests are added.
+
+### Command options
+
+| Option | Meaning |
+| --- | --- |
+| `docker compose run --rm odoo` | Create a temporary container using the `odoo` service configuration and remove it when the command exits. Start the database dependency if needed. |
+| Second `odoo` in the command | Run the Odoo executable inside that temporary container. |
+| `-d odoo18_test_cases` | Select the database to use. It is reused on later runs; this does not request a fresh database every time. |
+| `-i om_hospital,fleet` | Install the named addons into the selected database. Use this when they are not installed yet. |
+| `-u om_hospital,fleet` | Update the already-installed addons in the selected database. Use this for subsequent test runs. |
+| `--without-demo=all` | Skip demo data when initializing the database and installing addons. Our tests supply their own records. |
+| `--test-tags /om_hospital,/fleet` | Enable tests and select both addons' registered tests. Commas separate selections; adding `:ClassName` selects one class. |
+| `--db_host=db` | Connect to the PostgreSQL service named `db` on the Compose network. |
+| `--db_port=5432` | Use PostgreSQL's port inside the Compose network. |
+| `--db_user=odoo` / `--db_password=odoo` | Use the local development database credentials configured in `compose.yaml`. |
+| `--stop-after-init` | Exit Odoo after module loading and the selected tests finish. |
+| `--http-port=8070` | Set the test process's HTTP port inside its container. `compose run` does not publish service ports by default. |
+
+To run just one team test class, use either
+`--test-tags /fleet:TestFleetOdometer` or
+`--test-tags /om_hospital:TestHospitalAppointmentMissingDoctor` in the direct
+Docker command. The Python runner always selects both entire addons.
+
+### Container and database persistence
+
+The temporary Odoo container connects to PostgreSQL; it does not contain the
+test database:
+
+```text
+Temporary Odoo test container
+            | connects to
+PostgreSQL service (db)
+            | stores database files in
+Persistent Docker volume (odoo-db-data)
+```
+
+After a run, `--rm` removes only the temporary Odoo container. The database and
+installed addons remain available for the next run. These `TransactionCase`
+tests roll back their record changes, including Hospital's temporary doctor
+deletion and appointment reassignment. Module installation and updates persist.
+
+`docker compose down` preserves the database volume. `docker compose down -v`
+deletes the volumes, including **all development and test databases** stored
+there. No database reset is needed to rerun the tests.
+
+### Using an existing development database
+
+Tests can also run against an existing database: replace
+`-d odoo18_test_cases` with `-d odoo18` (or your database's actual name).
+Use `-i` for addons not installed in that database and `-u` for addons already
+installed. If their installation states differ, use, for example,
+`-i om_hospital -u fleet` when only Fleet is already installed.
+
+Addon installation is specific to each database. The source code makes an addon
+available to Odoo, but it must be installed in the selected database before its
+tests can run. The first-run command performs that installation without using
+the Apps interface. Installing Hospital in `odoo18_test_cases` does not install
+it in `odoo18`.
+
+Prefer the separate test database because installation and updates change the
+selected database even though the test methods roll back their record changes.
+The normal Odoo web container remains separate and available on port `8069`.
+
+## 9. Normal Development Workflow
 
 Start the environment:
 
@@ -345,7 +528,7 @@ docker compose up -d
 
 and existing database contents should remain available.
 
-## 9. Completely Reset the Environment
+## 10. Completely Reset the Environment
 
 To destroy the containers **and all local Odoo/PostgreSQL data**, run:
 
@@ -365,7 +548,7 @@ will create a completely fresh environment and the Odoo database setup page will
 
 Source code is unaffected because it remains in Git.
 
-## 10. Working With Fleet Source
+## 11. Working With Fleet Source
 
 Do not modify Fleet directly inside the disposable container filesystem.
 
@@ -403,7 +586,7 @@ git diff
 
 and discarded or isolated from the main branch when the demonstration is complete.
 
-## 11. Known om_hospital Behavior
+## 12. Known om_hospital Behavior
 
 The original `om_hospital` module contains a Create Appointment wizard that hard-codes:
 

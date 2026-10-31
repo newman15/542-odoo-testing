@@ -22,6 +22,7 @@ drivers/
 
 # Logs
 *.log
+/reports/
 
 # Temporary files
 *.tmp
