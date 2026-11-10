@@ -26,3 +26,6 @@ drivers/
 
 # Temporary files
 *.tmp
+
+# Other files
+*.md
