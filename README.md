@@ -484,6 +484,28 @@ Prefer the separate test database because installation and updates change the
 selected database even though the test methods roll back their record changes.
 The normal Odoo web container remains separate and available on port `8069`.
 
+## Running Selenium Tests
+
+From the repository root, activate your virtual environment
+with Selenium installed. Have Google Chrome installed and Odoo running at
+`http://localhost:8069`. Check the database and account settings near the top
+of `selenium/test_login.py` against your local setup.
+
+Run all Selenium tests using the wrapper:
+
+```bash
+python scripts/run_selenium_tests.py
+```
+
+Run a single test file directly:
+
+```bash
+python selenium/test_login.py
+```
+
+The browser opens during the tests, and results appear in the terminal.
+The wrapper automatically includes new `test_*.py` files in `selenium/`.
+
 ## 9. Normal Development Workflow
 
 Start the environment:
