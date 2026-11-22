@@ -54,11 +54,6 @@ class TestCreateAppointment(unittest.TestCase):
         )
         self.assertIsNotNone(invalid_field)
 
-    def clear_modals(self):
-        modals = self.driver.find_elements(By.CSS_Selector, ".modal-dialog .btn-secondary")
-        if modals:
-             modals[0].click()
-
     def login_to_odoo(self):
         self.driver.get(f"{BASE_URL}/web/login?{urlencode({'db': DATABASE})}")
         login_field = self.wait.until(
