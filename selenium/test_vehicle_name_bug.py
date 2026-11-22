@@ -23,4 +23,3 @@ WAIT_SECONDS = 20
 # The model we pick in the form and how it appears in Odoo's dropdown
 MODEL_SEARCH_TEXT = "A1"
 MODEL_DROPDOWN_TEXT = "Audi/A1"
-
