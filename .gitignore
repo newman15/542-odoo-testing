@@ -26,3 +26,7 @@ drivers/
 
 # Temporary files
 *.tmp
+
+# Other files
+/notes/
+AGENTS.md
