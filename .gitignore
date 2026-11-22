@@ -28,4 +28,5 @@ drivers/
 *.tmp
 
 # Other files
-*.md
+/notes/
+AGENTS.md
