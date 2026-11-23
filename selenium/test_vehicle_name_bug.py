@@ -21,8 +21,8 @@ PASSWORD = "admin"
 WAIT_SECONDS = 20
 
 # The model we pick in the form and how it appears in Odoo's dropdown
-MODEL_SEARCH_TEXT = "A1"
-MODEL_DROPDOWN_TEXT = "Audi/A1"
+MODEL_SEARCH_TEXT = "Micra"
+MODEL_DROPDOWN_TEXT = "Nissan/Micra"
 
 class TestFleetVehicleName(unittest.TestCase):
     """Create a vehicle in the browser and check the name Odoo gives it."""
@@ -66,7 +66,7 @@ class TestFleetVehicleName(unittest.TestCase):
 
         # A unique plate lets us find our own vehicle even after repeated runs.
         plate = f"SEL-{int(time.time()) % 100000}"
-        expected_name = f"Audi/A1/{plate}"
+        expected_name = f"Nissan/Micra/{plate}"
 
         # Open a new vehicle form directly.
         driver.get(f"{BASE_URL}/odoo/action-fleet.fleet_vehicle_action/new")
@@ -85,10 +85,10 @@ class TestFleetVehicleName(unittest.TestCase):
                 (
                     By.XPATH,
                     "//*[contains(@class, 'o-autocomplete--dropdown-item')]"
-                    f"//*[normalize-space(text())='{MODEL_DROPDOWN_TEXT}']",
+                    f"[contains(normalize-space(.), '{MODEL_SEARCH_TEXT}')]",
                 )
             ),
-            message="Could not find the Audi/A1 model in the dropdown.",
+            message="Could not find the Micra model in the dropdown.",
         )
         model_option.click()
 
@@ -117,7 +117,7 @@ class TestFleetVehicleName(unittest.TestCase):
         )
         actual_name = driver.find_element(*breadcrumb).text.strip()
 
-        # Clean source gives "Audi/A1/<plate>". The injected bug does not.
+        # Clean source gives "Nissan/Micra/<plate>". The injected bug does not.
         self.assertEqual(
             actual_name,
             expected_name,
